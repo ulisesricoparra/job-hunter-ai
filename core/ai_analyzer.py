@@ -1,7 +1,10 @@
 import os
+import time
+import json
 from typing import Dict, Any, List
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 
 
 class AIJobAnalyzer:
@@ -42,17 +45,47 @@ class AIJobAnalyzer:
 
         try:
             response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.0-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     temperature=0.3
                 )
             )
-            import json
             return json.loads(response.text)
+
+        except APIError as e:
+            # Si se excede la cuota/frecuencia (código 429), se espera 10 segundos y se reintenta
+            if e.code == 429:
+                print("Límite de peticiones alcanzado. Esperando 10 segundos antes de reintentar...")
+                time.sleep(10)
+                try:
+                    response = self.client.models.generate_content(
+                        model='gemini-2.0-flash',
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            temperature=0.3
+                        )
+                    )
+                    return json.loads(response.text)
+                except Exception as retry_err:
+                    print(f"Error tras el reintento: {retry_err}")
+                    return {
+                        "resumen": "Cuota de IA saturada momentáneamente.",
+                        "requisitos_clave": [],
+                        "por_que_encajas": "Por favor, reintenta dar clic en un momento."
+                    }
+
+            print(f"Error de API al llamar a la IA: {e}")
+            return {
+                "resumen": "Error durante el análisis con IA.",
+                "requisitos_clave": [],
+                "por_que_encajas": f"Detalle del error: {e.message if hasattr(e, 'message') else e}"
+            }
+
         except Exception as e:
-            print(f"Error al llamar a la API de IA: {e}")
+            print(f"Error inesperado al llamar a la API de IA: {e}")
             return {
                 "resumen": "Error durante el análisis con IA.",
                 "requisitos_clave": [],
@@ -76,10 +109,26 @@ class AIJobAnalyzer:
 
         try:
             response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.0-flash',
                 contents=prompt,
                 config=types.GenerateContentConfig(temperature=0.5)
             )
             return response.text
+
+        except APIError as e:
+            if e.code == 429:
+                print("Límite de peticiones alcanzado. Esperando 10 segundos antes de reintentar...")
+                time.sleep(10)
+                try:
+                    response = self.client.models.generate_content(
+                        model='gemini-2.0-flash',
+                        contents=prompt,
+                        config=types.GenerateContentConfig(temperature=0.5)
+                    )
+                    return response.text
+                except Exception as retry_err:
+                    return f"Cuota de peticiones agotada. Por favor espera unos segundos y vuelve a intentar."
+            return f"Error generando carta de presentación: {e.message if hasattr(e, 'message') else e}"
+
         except Exception as e:
             return f"Error generando carta de presentación: {e}"
