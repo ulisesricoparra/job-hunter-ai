@@ -3,7 +3,7 @@ name: Job Hunter AI Engine - Scheduled Run
 on:
   schedule:
     # Se ejecuta automáticamente todos los días a las 08:00 UTC (ajustable)
-    - cron: '0 8 * * *'
+    - cron: '0 13 * * *'
   workflow_dispatch: # Permite ejecutar el bot manualmente desde el botón de GitHub
 
 jobs:
