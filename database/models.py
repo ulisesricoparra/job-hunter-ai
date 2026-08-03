@@ -99,3 +99,21 @@ class DatabaseManager:
             return session.query(Job).all()
         finally:
             session.close()
+
+    def update_job_compatibility(self, job_id: int, score: float, status: str = "Pendiente"):
+        """Actualiza la puntuación de compatibilidad de una vacante por su ID."""
+        session: Session = self.SessionLocal()
+        try:
+            job = session.query(Job).filter(Job.id == job_id).first()
+            if job:
+                job.compatibilidad = score
+                job.estado = status
+                session.commit()
+                return True
+            return False
+        except Exception as e:
+            session.rollback()
+            print(f"Error al actualizar compatibilidad: {e}")
+            return False
+        finally:
+            session.close()
