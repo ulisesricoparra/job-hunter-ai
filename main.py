@@ -1,46 +1,42 @@
 import os
 from core.cv_parser import CVParser
 from database.models import DatabaseManager
+from scrapers.remoteok import RemoteOKScraper
+from scrapers.getonboard import GetOnBoardScraper
 
 
 def main():
-    print("🚀 Probando Fase 1 (CV) y Fase 2 (SQLite Database)...\n")
+    print("🚀 === INICIANDO JOB HUNTER AI ===\n")
 
-    # 1. Probar CV Parser
-    cv_file = "cv.pdf"  # Asegúrate de que coincida con tu archivo PDF
-    if os.path.exists(cv_file):
-        parser = CVParser(cv_path=cv_file)
-        cv_result = parser.parse()
-        print(f"✅ CV procesado: {len(cv_result['skills'])} habilidades detectadas.")
-    else:
-        print(f"⚠️  No se encontró {cv_file}, continuando prueba con DB...")
-
-    # 2. Probar Base de Datos
+    # 1. Instanciar gestor de base de datos
     db = DatabaseManager(db_path="jobs.db")
 
-    # Vacante de ejemplo
-    sample_job = {
-        "empresa": "Oracle",
-        "puesto": "QA Automation Engineer",
-        "salario": "$3,500 - $4,500 USD",
-        "modalidad": "Remote",
-        "ubicacion": "Mexico",
-        "descripcion": "Buscamos QA Engineer con experiencia en Python, Pytest, Selenium, SQL y Git.",
-        "url": "https://example.com/jobs/qa-automation-oracle-1",
-        "fuente": "GetOnBoard",
-        "fecha_publicacion": "2026-08-02"
-    }
+    # 2. Correr Scrapers
+    scrapers = [
+        RemoteOKScraper(),
+        GetOnBoardScraper()
+    ]
 
-    inserted = db.save_job(sample_job)
-    if inserted:
-        print("✅ Vacante de prueba insertada correctamente en SQLite!")
-    else:
-        print("ℹ️  La vacante ya existía en la base de datos (control de duplicados OK).")
+    new_jobs_count = 0
+    total_fetched = 0
 
-    all_jobs = db.get_all_jobs()
-    print(f"📊 Total de vacantes almacenadas en BD: {len(all_jobs)}")
-    for j in all_jobs:
-        print(f"   • [{j.fuente}] {j.empresa} - {j.puesto} ({j.modalidad})")
+    for scraper in scrapers:
+        jobs = scraper.fetch_jobs()
+        total_fetched += len(jobs)
+        for job in jobs:
+            if db.save_job(job):
+                new_jobs_count += 1
+
+    print("\n📊 === RESUMEN DE EXTRACCIÓN ===")
+    print(f"• Vacantes consultadas en la red: {total_fetched}")
+    print(f"• Nuevas vacantes guardadas en BD: {new_jobs_count}")
+
+    all_jobs_in_db = db.get_all_jobs()
+    print(f"• Total histórico acumulado en BD: {len(all_jobs_in_db)}")
+
+    print("\n📄 Últimas 5 vacantes registradas:")
+    for j in all_jobs_in_db[-5:]:
+        print(f"   [{j.fuente}] {j.empresa} -> {j.puesto} ({j.modalidad})")
 
 
 if __name__ == "__main__":
