@@ -9,6 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from database.models import DatabaseManager
 from core.cv_parser import CVParser
 from core.matcher import JobMatcher
+from core.ai_analyzer import AIJobAnalyzer
 
 # Configuración de página de Streamlit
 st.set_page_config(
@@ -21,13 +22,21 @@ st.title("💼 Job Hunter AI - Panel de Control")
 st.caption("Sistema inteligente de búsqueda, análisis y priorización de vacantes de QA & Automation.")
 
 
-# Inicializar Base de Datos y Matcher
+# Inicializar Base de Datos, Matcher y AI Analyzer
 @st.cache_resource
 def get_db():
     return DatabaseManager(db_path="jobs.db")
 
 
 db = get_db()
+
+
+@st.cache_resource
+def get_ai_analyzer():
+    return AIJobAnalyzer()
+
+
+ai_analyzer = get_ai_analyzer()
 
 # Cargar CV si existe
 user_skills = ["python", "selenium", "pytest", "sql", "git", "postman", "jira"]
@@ -113,6 +122,30 @@ for idx, row in filtered_df.iterrows():
 
             st.text_area("Descripción de la vacante", row["descripcion"], height=150, key=f"desc_{row['id']}")
             st.markdown(f"[🔗 Abrir oferta de empleo original]({row['url']})")
+
+            st.divider()
+
+            # Pestañas de Integración con IA
+            tab1, tab2 = st.tabs(["📄 Análisis de IA", "✍️ Carta de Presentación"])
+
+            with tab1:
+                if st.button("Analizar con IA 🤖", key=f"ai_btn_{row['id']}"):
+                    with st.spinner("Analizando vacante con IA..."):
+                        analysis = ai_analyzer.analyze_job(row['puesto'], row['empresa'], row['descripcion'],
+                                                           user_skills)
+                        st.success("Análisis generado:")
+                        st.write("**Resumen:**", analysis.get("resumen"))
+                        st.write("**Por qué encajas:**", analysis.get("por_que_encajas"))
+                        st.write("**Requisitos clave:**")
+                        for req in analysis.get("requisitos_clave", []):
+                            st.write(f"- {req}")
+
+            with tab2:
+                if st.button("Generar Carta de Presentación ✍️", key=f"cl_btn_{row['id']}"):
+                    with st.spinner("Redactando propuesta personalizada..."):
+                        letter = ai_analyzer.generate_cover_letter_draft(row['puesto'], row['empresa'],
+                                                                         row['descripcion'], user_skills)
+                        st.text_area("Borrador listo para copiar:", letter, height=180, key=f"cl_txt_{row['id']}")
 
         with c2:
             st.write("**Estado actual:**", row["estado"])
