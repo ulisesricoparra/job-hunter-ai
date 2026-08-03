@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()  # Carga las variables definidas en el archivo .env
 import sys
 import os
 import pandas as pd
